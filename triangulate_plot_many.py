@@ -15,6 +15,7 @@ import datetime
 
 #plt.ion()
 
+markers = ['*','.','*']
 
 def cart2polar(x, y, z):
     """
@@ -167,7 +168,6 @@ def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, al
         -------
         None
     '''
-    markers = ['t','s','*']
     fig, ax = plt.subplots(3,1,figsize=(20, 15))
     fig.suptitle('Evolution of the '+feature+' feature')
     # asign marker for each type of feature in all_features
@@ -186,7 +186,7 @@ def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, al
     by_label = dict(zip(labels, handles))
     # overwrite legend marker to use 'o' but keeps original color
     for k in by_label.keys():
-        by_label[k]._marker = 'v'
+        by_label[k]._marker = markers[1]
     ax[0].legend(by_label.values(), by_label.keys())
 
     fig.savefig(os.path.join(opath,'cart_coord_'+feature+'.png'), dpi=300,bbox_inches='tight')
@@ -212,11 +212,14 @@ def plot_Ploar_vs_time(points, date, opath, feature, colors, instruments, all_fe
     '''
     fig, ax = plt.subplots(3,1,figsize=(15, 10))
     fig.suptitle('Evolution of the '+feature+' feature')
+    # asign marker for each type of feature in all_features
+    unique_features = np.unique(all_features)   
+    all_markers = [markers[unique_features.tolist().index(f)] for f in all_features]    
     for i in range(len(points)):
         r, theta, phi = cart2polar(points[i][0,:],points[i][1,:],points[i][2,:])
-        ax[0].scatter(np.repeat(date[i],len(r)),r, color=colors[i], label=instruments[i])
-        ax[1].scatter(np.repeat(date[i],len(theta)),theta, color=colors[i], label=instruments[i])
-        ax[2].scatter(np.repeat(date[i],len(phi)),phi, color=colors[i], label=instruments[i])
+        ax[0].scatter(np.repeat(date[i],len(r)),r, color=colors[i], label=instruments[i], marker=all_markers[i])
+        ax[1].scatter(np.repeat(date[i],len(theta)),theta, color=colors[i], label=instruments[i], marker=all_markers[i])
+        ax[2].scatter(np.repeat(date[i],len(phi)),phi, color=colors[i], label=instruments[i], marker=all_markers[i])
     ax[0].set_ylabel('r')
     ax[1].set_ylabel('theta')
     ax[2].set_ylabel('phi')
@@ -224,7 +227,11 @@ def plot_Ploar_vs_time(points, date, opath, feature, colors, instruments, all_fe
     #legend of only unique labels
     handles, labels = ax[0].get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    ax[0].legend(by_label.values(), by_label.keys())    
+    # overwrite legend marker to use 'o' but keeps original color
+    for k in by_label.keys():
+        by_label[k]._marker = markers[1]
+    ax[0].legend(by_label.values(), by_label.keys())
+   
     fig.savefig(os.path.join(opath,'polar_coord_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
@@ -282,13 +289,13 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
                 dist.append(angular_distance(points[i][:,j],points[i][:,k]))
         # computes the maximum angle
         max_dist.append(np.max(dist))
-    ax.scatter(date,max_dist, color=colors, label=instruments)
-    ax.set_ylabel('Angular width')
+    unique_features = np.unique(all_features)
+    all_markers = [markers[unique_features.tolist().index(f)] for f in all_features]
+    for i in range(len(points)):
+        ax.scatter(date[i],max_dist[i], color=colors[i], label=instruments[i], marker=all_markers[i])
+    ax.set_ylabel('Angular width [deg]')
     ax.set_xlabel('Date')
-    #legend of only unique labels
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())     
+   
     fig.savefig(os.path.join(opath,'angular_width_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
