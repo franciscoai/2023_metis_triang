@@ -9,13 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import stereoscopy as stereo
 import datetime
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+from pyGCS_raytrace import pyGCS
 
 #plt.ion()
 
-markers = ['*','.','*']
+markers = ['*','v','s']
 
 def cart2polar(x, y, z):
     """
@@ -40,7 +41,7 @@ def cart2polar(x, y, z):
 #------------------------------------------------
 def prominence_plot(namef, opath, savefig=True):
     '''
-    Function description by Copilo
+    Function description by Copilot
         Plot the data points and the best-fitting curve in the HEEQ reference frame.
         Parameters      
         ----------
@@ -90,7 +91,7 @@ def prominence_plot(namef, opath, savefig=True):
     
     return points
 
-def plot_3d(points, color, ax=None, show=None, savefig=None, fig=None, opath=None):
+def plot_3d(points, color, ax=None, show=None, savefig=None, fig=None, opath=None, current_features=None, gcs=None):
     '''
     Function description by Copilot
         Plot points in 3D, on a sphere of radius 1 centered in (0, 0, 0).
@@ -134,24 +135,35 @@ def plot_3d(points, color, ax=None, show=None, savefig=None, fig=None, opath=Non
         ax.set_zlabel('Z')
         #plot the points
         ax.scatter(points[0,:],points[1,:],points[2,:], color=color)
-        ax.plot(points[0,:],points[1,:],points[2,:], color=color)
+        # if color is red and current_features is 'd3' uses dhased lines
+        if color=='red' and 'd3' in current_features: 
+            ax.plot(points[0,:],points[1,:],points[2,:], color=color, linestyle='--')
+        else:
+            ax.plot(points[0,:],points[1,:],points[2,:], color=color)        
         # Set view angle: elevation and orizontal
         #ax.view_init(elev=20,azim=50) 
         ax.set_box_aspect((np.ptp(X), np.ptp(Y), np.ptp(Z)))   
     else:
         #plot the points
-        ax.scatter(points[0,:],points[1,:],points[2,:], color=color)
-        ax.plot(points[0,:],points[1,:],points[2,:], color=color)                
+        ax.scatter(points[0,:],points[1,:],points[2,:], color=color)  
+        # if color is red and current_features is 'd3' uses dhased lines
+        if color=='red' and 'd3' in current_features: 
+            ax.plot(points[0,:],points[1,:],points[2,:], color=color, linestyle='--')
+        else:
+            ax.plot(points[0,:],points[1,:],points[2,:], color=color)                    
     if show is not None:
        plt.show()       
     if savefig is not None:
+       #add GCS
+       if gcs is not None:
+            ax.scatter(gcs[:,0],gcs[:,1],gcs[:,2], color='black', marker='.') 
        # Set aspect ratio to be equal
        ax.set_aspect('equal') #ax.set_aspect('auto') #           
        ax.set_title('3D Plot of feature '+savefig+' evolution')       
        fig.savefig(os.path.join(opath,'3D_'+savefig+'.png'), dpi=300,bbox_inches='tight')
     return ax, fig
 
-def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, all_features):
+def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, all_features, gcs_dates=None, gcs=None):
     '''
     Function description by Copilot
         Plot the x, y, z coordinates of the point groups  vs date in three separated subplots.
@@ -177,6 +189,12 @@ def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, al
         ax[0].scatter(np.repeat(date[i],len(points[i][0,:])),points[i][0,:], color=colors[i], label=instruments[i], marker=all_markers[i])
         ax[1].scatter(np.repeat(date[i],len(points[i][1,:])),points[i][1,:], color=colors[i], label=instruments[i], marker=all_markers[i])
         ax[2].scatter(np.repeat(date[i],len(points[i][2,:])),points[i][2,:], color=colors[i], label=instruments[i], marker=all_markers[i])
+    if gcs_dates is not None:
+        for i in range(len(gcs)):
+            r, theta, phi = gcs[i][:,0],gcs[i][:,1],gcs[i][:,2]            
+            ax[0].scatter(np.repeat(gcs_dates[i],len(r)),r, color='black', label='GCS', marker='.')
+            ax[1].scatter(np.repeat(gcs_dates[i],len(theta)),theta, color='black', label='GCS', marker='.')
+            ax[2].scatter(np.repeat(gcs_dates[i],len(phi)),phi, color='black', label='GCS', marker='.')           
     ax[0].set_ylabel('X')
     ax[1].set_ylabel('Y')
     ax[2].set_ylabel('Z')
@@ -193,7 +211,7 @@ def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, al
     plt.close()
        
 # same as above but first converts to polar coordinates
-def plot_Ploar_vs_time(points, date, opath, feature, colors, instruments, all_features):
+def plot_Ploar_vs_time(points, date, opath, feature, colors, instruments, all_features, gcs_dates=None, gcs=None):
     '''
     Function description by Copilot
         Plot the r, theta, phi coordinates of the point groups  vs date in three separated subplots.
@@ -220,6 +238,12 @@ def plot_Ploar_vs_time(points, date, opath, feature, colors, instruments, all_fe
         ax[0].scatter(np.repeat(date[i],len(r)),r, color=colors[i], label=instruments[i], marker=all_markers[i])
         ax[1].scatter(np.repeat(date[i],len(theta)),theta, color=colors[i], label=instruments[i], marker=all_markers[i])
         ax[2].scatter(np.repeat(date[i],len(phi)),phi, color=colors[i], label=instruments[i], marker=all_markers[i])
+    if gcs_dates is not None:
+        for i in range(len(gcs)):
+            r, theta, phi = cart2polar(gcs[i][:,0],gcs[i][:,1],gcs[i][:,2])            
+            ax[0].scatter(np.repeat(gcs_dates[i],len(r)),r, color='black', label='GCS', marker='.')
+            ax[1].scatter(np.repeat(gcs_dates[i],len(theta)),theta, color='black', label='GCS', marker='.')
+            ax[2].scatter(np.repeat(gcs_dates[i],len(phi)),phi, color='black', label='GCS', marker='.')      
     ax[0].set_ylabel('r')
     ax[1].set_ylabel('theta')
     ax[2].set_ylabel('phi')
@@ -261,7 +285,7 @@ def angular_distance(p1, p2):
     return dist
 
 # function to compute the maximum angular distance between the points in each date and plot it vs date
-def plot_max_angular_distance(points, date, opath, feature, colors, instruments, all_features):
+def plot_max_angular_distance(points, date, opath, feature, colors, instruments, all_features, gcs_dates=None, gcs_aw=None):
     '''
     Function description by Copilot
         Plot the maximum angular distance between the points of each date vs date.
@@ -273,11 +297,13 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
             Path where to save the figure.
         feature : str
             Name of the feature.
+
         colors : list of colors, len n
         Returns
         -------
         None
     '''
+
     fig, ax = plt.subplots(1,1,figsize=(12, 8))
     fig.suptitle('Feature ' + feature + ' angular width evolution')
     max_dist = []
@@ -293,9 +319,19 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
     all_markers = [markers[unique_features.tolist().index(f)] for f in all_features]
     for i in range(len(points)):
         ax.scatter(date[i],max_dist[i], color=colors[i], label=instruments[i], marker=all_markers[i])
+    # adds the angular width computed from the GCS fits
+    if gcs_dates is not None:
+        # adds to the scatter plot
+        ax.scatter(gcs_dates,gcs_aw, color='black', label='GCS', marker='o')
     ax.set_ylabel('Angular width [deg]')
     ax.set_xlabel('Date')
-   
+    #legend of only unique labels
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    # overwrite legend marker to use 'o' but keeps original color
+    for k in by_label.keys():
+        by_label[k]._marker = markers[0]
+    ax.legend(by_label.values(), by_label.keys())   
     fig.savefig(os.path.join(opath,'angular_width_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
@@ -307,9 +343,10 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
 root_path = '/gehme/projects/2023_metis_triang'
 path = root_path+'/Triangulation_files_yara/triang_output_files'
 instruments = ['AIA_EUVI_304', 'COR1_LASCO_C2','COR2_LASCO_C2','Metis_UV_COR2']
-all_features = ['d1','d2','d3','d2_and_d3']
+all_features = ['d2_and_d3', 'd1','d2','d3']
 inst_colors=['blue','green','red','violet'] # colors for each instrument pair
 opath = root_path + '/output_plots'
+gcs_fits_path = root_path + '/gcs_fits'
 
 for feature in all_features:
     # read input files
@@ -361,22 +398,47 @@ for feature in all_features:
     current_features = []
     for i in range(len(full_paths)):
         points.append(prominence_plot(full_paths[i], opath, savefig=False))
-        for f in all_features:
+        for f in ['d1','d2','d3']:
             if f in os.path.basename(full_paths[i]):
                 current_features.append(f)
         
+    # get GCS
+    if gcs_fits_path is not None:
+        if 'd1' in feature:
+            gcs_fit = 'f1'
+        elif 'd2_and_d3' in feature or 'd2' in feature or 'd3' in feature:
+            gcs_fit = 'f2_f3'
+        gcs_fits_path_feature = os.path.join(gcs_fits_path,gcs_fit)
+        #reads .csv files only from gcs_fits_path_feature dir and loads dataas string in a list
+        files=os.listdir(gcs_fits_path_feature)
+        files = [f for f in files if f.endswith('.csv')]
+        gcs_dates = []
+        gcs_aw=[]
+        gcs_param = []
+        for f in files:
+            rows = np.loadtxt(os.path.join(gcs_fits_path_feature,f), delimiter=',',dtype=str)
+            gcs_dates.append(datetime.datetime.strptime(rows[0],'%Y-%m-%dT%H:%M:%S.%f'))
+            gcs_param.append([float(p) for p in rows[1:7]])
+            gcs_aw.append(2*float(rows[6]))  
+        # sort by date
+        gcs_dates, gcs_param, gcs_aw = zip(*sorted(zip(gcs_dates, gcs_param, gcs_aw)))
+
+    gcs = []
+    for param in gcs_param:
+        gcs.append(pyGCS.getGCS(param[0], param[1], param[2], param[3], param[4], param[5], None))
+
     #plot in 3D all together
-    ax, fig = plot_3d(points[0],colors[0])
+    ax, fig = plot_3d(points[0],colors[0], current_features=current_features[0])
     for i in range(len(full_paths)-1):
-        plot_3d(points[i+1],colors[i+1], ax=ax)
-    plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=feature, fig=fig, opath=opath)
+        plot_3d(points[i+1],colors[i+1], ax=ax, current_features=current_features[i+1])
+    plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=feature, fig=fig, opath=opath, current_features=current_features[len(full_paths)-1], gcs=gcs[-1])
 
     # plot x,y,z coordinate vs date
-    plot_Cartesian_vs_time(points, date, opath, feature, colors, all_instruments, current_features)
+    plot_Cartesian_vs_time(points, date, opath, feature, colors, all_instruments, current_features, gcs_dates=gcs_dates, gcs=gcs)
     # plot r,theta,phi coordinate vs date
-    plot_Ploar_vs_time(points, date, opath, feature, colors, all_instruments, current_features)
+    plot_Ploar_vs_time(points, date, opath, feature, colors, all_instruments, current_features, gcs_dates=gcs_dates, gcs=gcs)
     # plot max angular distance vs date
-    plot_max_angular_distance(points, date, opath, feature, colors, all_instruments, current_features)
+    plot_max_angular_distance(points, date, opath, feature, colors, all_instruments, current_features, gcs_dates=gcs_dates, gcs_aw=gcs_aw)
 
 
 
