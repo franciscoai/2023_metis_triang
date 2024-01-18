@@ -11,7 +11,7 @@ import sys
 import os
 import stereoscopy as stereo
 import datetime
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+#sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from pyGCS_raytrace import pyGCS
 
 #plt.ion()
@@ -155,12 +155,17 @@ def plot_3d(points, color, ax=None, show=None, savefig=None, fig=None, opath=Non
        plt.show()       
     if savefig is not None:
        #add GCS
-       if gcs is not None:
+        if gcs is not None:
             ax.scatter(gcs[:,0],gcs[:,1],gcs[:,2], color='black', marker='.') 
-       # Set aspect ratio to be equal
-       ax.set_aspect('equal') #ax.set_aspect('auto') #           
-       ax.set_title('3D Plot of feature '+savefig+' evolution')       
-       fig.savefig(os.path.join(opath,'3D_'+savefig+'.png'), dpi=300,bbox_inches='tight')
+            # Set aspect ratio to be equal
+            ax.set_aspect('equal') #ax.set_aspect('auto') #           
+            ax.set_title('3D Plot of feature '+savefig+' evolution')       
+            fig.savefig(os.path.join(opath,'3D_'+savefig+'_gcs.png'), dpi=300,bbox_inches='tight')
+        else:
+            # Set aspect ratio to be equal
+            ax.set_aspect('equal') #ax.set_aspect('auto') #           
+            ax.set_title('3D Plot of feature '+savefig+' evolution')       
+            fig.savefig(os.path.join(opath,'3D_'+savefig+'.png'), dpi=300,bbox_inches='tight')
     return ax, fig
 
 def plot_Cartesian_vs_time(points, date, opath, feature, colors, instruments, all_features, gcs_dates=None, gcs=None):
@@ -340,13 +345,14 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
 ####################################################
 
 # input path
-root_path = '/gehme/projects/2023_metis_triang'
-path = root_path+'/Triangulation_files_yara/triang_output_files'
+root_path = '/gehme/projects/2023_metis_triang/repo_fran/2023_metis_triang'
+path = root_path+'/input_data/Triangulation_files_yara/triang_output_files'
 instruments = ['AIA_EUVI_304', 'COR1_LASCO_C2','COR2_LASCO_C2','Metis_UV_COR2']
 all_features = ['d2_and_d3', 'd1','d2','d3']
 inst_colors=['blue','green','red','violet'] # colors for each instrument pair
-opath = root_path + '/output_plots'
-gcs_fits_path = root_path + '/gcs_fits'
+opath = '/gehme/projects/2023_metis_triang/output_plots'
+gcs_fits_path = root_path + '/input_data/gcs_fits'
+change_d1_sign = True # if True changes the sign of the x coordinate of the d1 feature in 'Metis_UV_COR2' instrument
 
 for feature in all_features:
     # read input files
@@ -354,6 +360,8 @@ for feature in all_features:
     colors=[]
     for i in instruments:
         files=os.listdir(path+'/'+i)
+        # exclude dirs 
+        files = [f for f in files if os.path.isfile(os.path.join(path+'/'+i,f))]
         full_paths.append([path+'/'+i+'/'+f for f in files])
         colors.append([inst_colors[instruments.index(i)] for f in files])
     full_paths = [item for sublist in full_paths for item in sublist]
@@ -398,6 +406,9 @@ for feature in all_features:
     current_features = []
     for i in range(len(full_paths)):
         points.append(prominence_plot(full_paths[i], opath, savefig=False))
+        #for d1 in 'Metis_UV_COR2' changes the x coordinate points sign
+        if change_d1_sign and 'd1' in os.path.basename(full_paths[i]) and 'Metis_UV_COR2' in os.path.dirname(full_paths[i]):
+            points[i][0,:] = -points[i][0,:]
         for f in ['d1','d2','d3']:
             if f in os.path.basename(full_paths[i]):
                 current_features.append(f)
@@ -415,7 +426,7 @@ for feature in all_features:
         gcs_dates = []
         gcs_aw=[]
         gcs_param = []
-        for f in files:
+        for f in files: 
             rows = np.loadtxt(os.path.join(gcs_fits_path_feature,f), delimiter=',',dtype=str)
             gcs_dates.append(datetime.datetime.strptime(rows[0],'%Y-%m-%dT%H:%M:%S.%f'))
             gcs_param.append([float(p) for p in rows[1:7]])
@@ -431,6 +442,7 @@ for feature in all_features:
     ax, fig = plot_3d(points[0],colors[0], current_features=current_features[0])
     for i in range(len(full_paths)-1):
         plot_3d(points[i+1],colors[i+1], ax=ax, current_features=current_features[i+1])
+    plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=feature, fig=fig, opath=opath, current_features=current_features[len(full_paths)-1])
     plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=feature, fig=fig, opath=opath, current_features=current_features[len(full_paths)-1], gcs=gcs[-1])
 
     # plot x,y,z coordinate vs date
