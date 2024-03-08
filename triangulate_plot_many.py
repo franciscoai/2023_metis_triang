@@ -36,7 +36,9 @@ def cart2polar(x, y, z):
     r = np.sqrt(x**2 + y**2 + z**2)  # Calculate radial distance
     theta = np.arctan2(y, x)  # Calculate azimuthal angle
     phi = np.arccos(z / r)  # Calculate polar angle
-
+    # angles to deg
+    theta = np.degrees(theta)
+    phi = np.degrees(phi)
     return r, theta, phi
 #------------------------------------------------
 def prominence_plot(namef, opath, savefig=True):
@@ -233,26 +235,54 @@ def plot_polar_vs_time(points, date, opath, feature, colors, instruments, all_fe
         -------
         None
     '''
-    fig, ax = plt.subplots(3,1,figsize=(15, 10))
+    Sr = 695700 # Solar radius in km
+    fig, ax = plt.subplots(4,1,figsize=(23, 15))
     fig.suptitle('Evolution of the '+feature_name+' feature')
     # asign marker for each type of feature in all_features
     unique_features = np.unique(all_features)   
     all_markers = [markers[unique_features.tolist().index(f)] for f in all_features]    
     if gcs_dates is not None:
         for i in range(len(gcs)):
-            r, theta, phi = cart2polar(gcs[i][:,0],gcs[i][:,1],gcs[i][:,2])            
+            r, theta, phi = cart2polar(gcs[i][:,0],gcs[i][:,1],gcs[i][:,2])                    
             ax[0].scatter(np.repeat(gcs_dates[i],len(r)),r, color='grey', label='GCS', marker='.')
             ax[1].scatter(np.repeat(gcs_dates[i],len(theta)),theta, color='grey', label='GCS', marker='.')
             ax[2].scatter(np.repeat(gcs_dates[i],len(phi)),phi, color='grey', label='GCS', marker='.')      
+    mean_r = []
     for i in range(len(points)):
         r, theta, phi = cart2polar(points[i][0,:],points[i][1,:],points[i][2,:])
+        if i > 0:
+            # get the radial instantaneous velocity from average r in i and i+1 in km/s, distances are in Solar Raddii. Date is timedelta object
+            dt = (date[i]-date[i-1]).total_seconds()
+            if dt > 0:
+                print('Warning: time difference between dates is zero, skipping drdt computation for date', date[i])
+                dr = (np.mean(r)-np.mean(r_prev))
+                drdt = dr*Sr/dt
+            else:
+                drdt = np.nan
+            r_prev = r
+        else:
+            drdt = np.nan
+            r_prev = r
+        mean_r.append(np.mean(r))
         ax[0].scatter(np.repeat(date[i],len(r)),r, color=colors[i], label=instruments[i], marker=all_markers[i])
+        ax[0].scatter(date[i], np.mean(r), color='k', label='mean', marker='*')
         ax[1].scatter(np.repeat(date[i],len(theta)),theta, color=colors[i], label=instruments[i], marker=all_markers[i])
-        ax[2].scatter(np.repeat(date[i],len(phi)),phi, color=colors[i], label=instruments[i], marker=all_markers[i])    
+        ax[1].scatter(date[i],np.mean(theta), color='k', marker='*')
+        ax[2].scatter(np.repeat(date[i],len(phi)),phi, color=colors[i], label=instruments[i], marker=all_markers[i])
+        ax[2].scatter(date[i],np.mean(phi), color='k', marker='*')    
+        ax[3].scatter(date[i],drdt, color=colors[i], label=instruments[i], marker=all_markers[i])
+    # fit a line to the date in seconds, mean_r
+    date_s = [d.timestamp() for d in date]
+    m, q = np.polyfit(date_s, mean_r, 1)
+    ax[0].plot(date, m*np.array(date_s)+q,'--k')#, label='fit')
+    # adds velocity from the fit in km/s as title of ax[0]
+    ax[0].set_title('Mean r velocity: '+str(round(m*Sr,2))+' km/s')
     ax[0].set_ylabel('r')
-    ax[1].set_ylabel('theta')
-    ax[2].set_ylabel('phi')
+    ax[1].set_ylabel('theta [deg]')
+    ax[2].set_ylabel('phi [deg]')
     ax[2].set_xlabel('Date')
+    ax[3].set_ylabel('dr/dt [km/s]')
+    ax[3].set_xlabel('Date')
     #legend of only unique labels
     handles, labels = ax[0].get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
@@ -260,7 +290,6 @@ def plot_polar_vs_time(points, date, opath, feature, colors, instruments, all_fe
     for k in by_label.keys():
         by_label[k]._marker = markers[1]
     ax[0].legend(by_label.values(), by_label.keys())
-   
     fig.savefig(os.path.join(opath,'polar_coord_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
