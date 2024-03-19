@@ -342,7 +342,54 @@ def plot_polar_vs_radius(points, date, opath, feature, colors, instruments, all_
     fig.savefig(os.path.join(opath,'polar_coord_vs_r_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
-    
+# polar coordinates vs radius movie
+def plot_polar_vs_radius_movie(points, date, opath, feature, colors, instruments, all_features, gcs_dates=None, gcs=None, feature_name=''):
+    '''
+    Same as above but produces one plot per date and assemble them in a movie
+
+    '''
+    r_lim = [0,16] # plot limits in Solar radii
+
+    # asign marker for each type of feature in all_features
+    unique_features = np.unique(all_features)   
+    all_markers = [markers[unique_features.tolist().index(f)] for f in all_features]    
+    for frm in range(len(points)):
+        fig, ax = plt.subplots(3,1,figsize=(15, 10))
+        fig.suptitle('Evolution of the '+feature_name+' feature')        
+        if gcs_dates is not None:            
+            try:
+                # selects the GCS data for the current date 
+                idx = gcs_dates.index(date[frm])
+                r, theta, phi = cart2polar(gcs[idx][:,0],gcs[idx][:,1],gcs[idx][:,2])            
+                ax[0].scatter(r,r, color='grey', label='GCS', marker='.')
+                ax[1].scatter(r,theta, color='grey', label='GCS', marker='.')
+                ax[2].scatter(r,phi, color='grey', label='GCS', marker='.')   
+            except:
+                pass 
+        # Todo: Compute 3D location metrics between points and GCS here!        
+        r, theta, phi = cart2polar(points[frm][0,:],points[frm][1,:],points[frm][2,:])
+        ax[0].scatter(r,r, color=colors[frm], label=instruments[frm], marker=all_markers[frm])
+        ax[1].scatter(r,theta, color=colors[frm], label=instruments[frm], marker=all_markers[frm])
+        ax[2].scatter(r,phi, color=colors[frm], label=instruments[frm], marker=all_markers[frm])
+        ax[0].set_ylabel('r')
+        ax[1].set_ylabel('theta')
+        ax[2].set_ylabel('phi')
+        ax[2].set_xlabel('r')
+        # setr limits to max and min r
+        ax[0].set_xlim(r_lim)
+        ax[1].set_xlim(r_lim)
+        ax[2].set_xlim(r_lim)
+        #legend of only unique labels
+        handles, labels = ax[0].get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        # overwrite legend marker to use 'o' but keeps original color
+        for k in by_label.keys():
+            by_label[k]._marker = markers[1]
+        ax[0].legend(by_label.values(), by_label.keys())
+        movie_opath = os.path.join(opath,'polar_coord_vs_r_'+feature+'_movie')
+        os.makedirs(movie_opath,exist_ok=True)
+        fig.savefig(os.path.join(movie_opath,'polar_coord_vs_r_'+feature+'_'+str(frm)+'.png'), dpi=300,bbox_inches='tight')
+        plt.close()
     
 # function to compute the angular distance between two 3d cartesian points
 def angular_distance(p1, p2):
@@ -420,6 +467,7 @@ def plot_max_angular_distance(points, date, opath, feature, colors, instruments,
     fig.savefig(os.path.join(opath,'angular_width_'+feature+'.png'), dpi=300,bbox_inches='tight')
     plt.close()
 
+
 ####################################################
 ####MAIN
 ####################################################
@@ -430,7 +478,7 @@ path = root_path+'/input_data/Triangulation_files_yara/triang_output_files'
 instruments = ['AIA_EUVI_304', 'COR1_LASCO_C2','COR2_LASCO_C2','Metis_UV_COR2']
 all_features = ['d2_and_d3', 'd1','d2','d3']
 all_features_names = ['f2_and_f3', 'f1','f2','f3']
-inst_colors=['blue','green','red','violet'] # colors for each instrument pair
+inst_colors=['blue','green','red','black'] # colors for each instrument pair
 opath = '/gehme/projects/2023_metis_triang/output_plots'
 gcs_fits_path = root_path + '/input_data/gcs_fits'
 change_d1_sign = True # if True changes the sign of the x coordinate of the d1 feature in 'Metis_UV_COR2' instrument
@@ -515,9 +563,22 @@ for feature in all_features:
         # sort by date
         gcs_dates, gcs_param, gcs_aw = zip(*sorted(zip(gcs_dates, gcs_param, gcs_aw)))
 
+    # get GCS mesh
     gcs = []
     for param in gcs_param:
         gcs.append(pyGCS.getGCS(param[0], param[1], param[2], param[3], param[4], param[5], None))
+
+    # get interpolated GCS mesh for all dates
+    gcs_interpolated = []
+    gcs_interpolated_dates = date
+    for i in range(len(date)):
+        # from gcs_param and gcs_dates, interpolates to date[i]
+        date_ts = date[i].timestamp()
+        gcs_dates_ts = [d.timestamp() for d in gcs_dates]
+        interp_gcs_param = []
+        for j in range(len(gcs_param[0])):
+            interp_gcs_param.append(np.interp(date_ts, gcs_dates_ts, [p[j] for p in gcs_param]))
+        gcs_interpolated.append(pyGCS.getGCS(interp_gcs_param[0], interp_gcs_param[1], interp_gcs_param[2], interp_gcs_param[3], interp_gcs_param[4], interp_gcs_param[5], None))      
 
     #plot in 3D all together
     feat_idx = all_features.index(feature)
@@ -527,6 +588,8 @@ for feature in all_features:
     plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=all_features_names[feat_idx] , fig=fig, opath=opath, current_features=current_features[len(full_paths)-1])
     plot_3d(points[len(full_paths)-1],colors[len(full_paths)-1], ax=ax, show=None, savefig=all_features_names[feat_idx], fig=fig, opath=opath, current_features=current_features[len(full_paths)-1], gcs=gcs[-1])
 
+    # plot r,theta,phi coordinate vs r
+    plot_polar_vs_radius_movie(points, date, opath, feature, colors, all_instruments, current_features, gcs_dates=gcs_interpolated_dates, gcs=gcs_interpolated, feature_name=all_features_names[feat_idx])
     # plot x,y,z coordinate vs date
     plot_Cartesian_vs_time(points, date, opath, feature, colors, all_instruments, current_features, gcs_dates=gcs_dates, gcs=gcs, feature_name=all_features_names[feat_idx])
     # plot r,theta,phi coordinate vs date
