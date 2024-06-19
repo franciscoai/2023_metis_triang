@@ -7,6 +7,8 @@ To run the program, write in the IPython shell the following command
 
 run triangulate.py 'data_example/195_diff.fits' 'data_example/aia_diff.fits' 'data_example/my_outputs.txt'
 
+Yara change
+
 """
 import sys
 import numpy as np
