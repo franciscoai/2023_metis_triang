@@ -3,16 +3,13 @@ Created by Giuseppe Nisticò.
 march 25, 2022
 Performing geometric triangulation between two stereoscopic images.
 
+# added Gehme:
 To run the program, write in the IPython shell the following command
-
-run triangulate.py 'data_example/195_diff.fits' 'data_example/aia_diff.fits' 'data_example/my_outputs.txt'
-
-Yara change
+python -i triangulate.py False d1 '/path/to/first.fits' '/path/to/second.fts'
 
 """
 import sys
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backend_bases import MouseButton
 from matplotlib.widgets import Button, TextBox #, RangeSlider
@@ -20,13 +17,10 @@ import astropy
 import sunpy
 from sunpy.map import Map
 import datetime
-#from sunpy.coordinates import frames
-#from mpl_toolkits.mplot3d import Axes3D
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from sunpy.coordinates.ephemeris import get_horizons_coord
 import os
-import astroquery
 HOME = os.environ.get('HOME') 
 
     
@@ -315,7 +309,7 @@ file1 = sys.argv[4]# HOME+'/python/3dloop/code/20090213_055530_n4euA.fts'
 if len(sys.argv) == 6:
     save_file = sys.argv[5]
 else:
-    save_file = "C:\\Users\\deleo\\Desktop\\metis_py\\mendoza_cmes\\triang_points\\"
+    save_file = "/home/yara/Projects/mendoza_cme/2023_metis_triang/input_data/Triangulation_files_yara/triang_output_files/Metis_UV_COR2"
     save_file = os.path.join(save_file,os.path.basename(file0)+"_"+os.path.basename(file1+'_'+event_name+'.txt'))
     
     
@@ -360,9 +354,6 @@ d0 = hdr0['DSUN_OBS']
 lon0 = hdr0['HGLN_OBS']*np.pi/180.
 lat0 = hdr0['HGLT_OBS']*np.pi/180.
 
-
-
-    
 #cmaps
 # map0.plot_settings['cmap'] = 'Greys_r'
 # map1.plot_settings['cmap'] = 'Greys_r'
